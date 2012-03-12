@@ -8,6 +8,7 @@ from threading import Thread
 from time import sleep
 import urllib
 import zlib
+from StringIO import StringIO
 
 from tweepy import __version__
 from tweepy.models import Status
@@ -152,18 +153,19 @@ class Stream(object):
 
     def _read_gzip_loop(self, resp):
         decompressor = zlib.decompressobj(16 + zlib.MAX_WBITS)
-        data = ''
+        data = StringIO()
         lines = []
 
         while self.running and not resp.isclosed():
             buf = decompressor.decompress(resp.read(self.buffer_size))
             for c in buf:
                 if c == '\n':
-                    if not data.strip().isdigit():
-                        lines.append(data.strip())
-                    data = ''
+                    line = data.getvalue().strip()
+                    if not line.isdigit():
+                        lines.append(line)
+                    data = StringIO()
                 else:
-                    data += c
+                    data.write(c)
 
             if len(lines) > 0:
                 for line in lines:
