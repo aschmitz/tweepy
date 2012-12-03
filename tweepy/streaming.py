@@ -76,7 +76,8 @@ class Stream(object):
         self.running = False
         self.timeout = options.get("timeout", 300.0)
         self.retry_count = options.get("retry_count")
-        self.retry_time = options.get("retry_time", 10.0)
+        self.retry_time_base = options.get("retry_time", 10.0)
+        self.retry_time = self.retry_time_base
         self.snooze_time = options.get("snooze_time",  5.0)
         self.buffer_size = options.get("buffer_size",  1500)
         self.use_gzip = options.get("gzip", False)
@@ -120,6 +121,9 @@ class Stream(object):
                         break
                     error_counter += 1
                     sleep(self.retry_time)
+                    self.retry_time *= 2  # exponential backoff
+                    if (self.retry_time > 240):
+                        self.retry_time = 240
                 else:
                     error_counter = 0
                     encoding = resp.getheader('content-encoding', '')
@@ -127,6 +131,7 @@ class Stream(object):
                         self._read_gzip_loop(resp)
                     else:
                         self._read_loop(resp)
+                    self.retry_time = self.retry_time_base # successful operation, reset backoff time
             except timeout:
                 if self.listener.on_timeout() == False:
                     break
